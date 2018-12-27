@@ -1,8 +1,13 @@
 package com.mohsenshahini.widget
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.*
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.support.annotation.IntDef
+import android.support.graphics.drawable.VectorDrawableCompat
+import android.support.v4.content.ContextCompat
 import android.support.v4.view.GestureDetectorCompat
 import android.support.v4.view.ViewCompat
 import android.support.v4.view.animation.FastOutLinearInInterpolator
@@ -17,6 +22,11 @@ import android.widget.OverScroller
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
+import android.opengl.ETC1.getHeight
+import android.opengl.ETC1.getWidth
+import android.graphics.Bitmap
+
+
 
 class CalendarView : View {
 
@@ -130,6 +140,7 @@ class CalendarView : View {
     private var scaledTouchSlop = 0
     private var scrollToHour = 1F
     //Fixme This must change for number of staffs
+    private var numberOfStaff = 7
     private var numberOfVisibleDays = 3
     private var nowLineThickness = 1
     private var columnGap = 10
@@ -180,14 +191,14 @@ class CalendarView : View {
     private lateinit var hourSeparatorPaint: Paint
     private lateinit var nowLinePaint: Paint
     private lateinit var pastBackgroundPaint: Paint
-    private lateinit var pastWeekendBackgroundPaint: Paint
+//    private lateinit var pastWeekendBackgroundPaint: Paint
     private lateinit var timeTextPaint: Paint
     private lateinit var todayBackgroundPaint: Paint
     /*** TextPaints */
     private lateinit var eventTextPaint: TextPaint
     private lateinit var headerTextPaint: Paint
     private lateinit var todayHeaderTextPaint: Paint
-    
+
     /** Points */
     private var currentOrigin = PointF(0f, 0f)
 
@@ -206,8 +217,11 @@ class CalendarView : View {
     private var emptyViewClickListener: EmptyViewClickListener = EmptyViewClickListenerImpl()
     private var eventClickListener: EventClickListener = EventClickListenerImpl()
     private var dateTimeInterpreter = DateTimeInterpreterImpl()
-    private lateinit var monthChangeListener: MonthChangeListener
+    //    private lateinit var monthChangeListener: MonthChangeListener
     private lateinit var weekViewLoader: WeekViewLoader
+
+
+    private var bitmap: Bitmap? = null
 
 
     constructor(context: Context) : this(context, null)
@@ -262,6 +276,12 @@ class CalendarView : View {
         init()
     }
 
+    fun setBitmap(bitmap: Bitmap?) {
+        this.bitmap = bitmap
+        requestLayout()
+    }
+
+    @Suppress("unused")
     fun setOnScrollListener(listener: ScrollListener) {
         scrollListener = listener
     }
@@ -270,6 +290,7 @@ class CalendarView : View {
         eventClickListener = listener
     }
 
+    @Suppress("unused")
     fun getMonthChangeListener(): MonthChangeListener? = if (weekViewLoader is MonthLoader) {
         (weekViewLoader as MonthLoader).getOnMonthChangeListener()
     } else {
@@ -281,6 +302,7 @@ class CalendarView : View {
         weekViewLoader = MonthLoader(listener)
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         scaleDetector.onTouchEvent(event)
         val touchEvent = gestureDetector.onTouchEvent(event)
@@ -310,7 +332,8 @@ class CalendarView : View {
             )
 
             // Draw the header row.
-            drawHeaderRowAndEvents(it)
+//            drawHeaderRowAndEvents(it)
+            drawHourLine(it)
 
             // Draw the time column and all the axes/separators. 
             drawTimeColumnAndAxes(it)
@@ -358,8 +381,8 @@ class CalendarView : View {
         pastBackgroundPaint.color = pastBackgroundColor
         futureWeekendBackgroundPaint = Paint()
         futureWeekendBackgroundPaint.color = futureWeekendBackgroundColor
-        pastWeekendBackgroundPaint = Paint()
-        pastWeekendBackgroundPaint.color = pastWeekendBackgroundColor
+//        pastWeekendBackgroundPaint = Paint()
+//        pastWeekendBackgroundPaint.color = pastWeekendBackgroundColor
 
         // Prepare hour separator color paint.
         hourSeparatorPaint = Paint()
@@ -374,7 +397,7 @@ class CalendarView : View {
 
         // Prepare today background color paint.
         todayBackgroundPaint = Paint()
-        todayBackgroundPaint.setColor(todayBackgroundColor)
+        todayBackgroundPaint.color = todayBackgroundColor
 
         // Prepare today header text color paint.
         todayHeaderTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
@@ -430,18 +453,15 @@ class CalendarView : View {
     private fun goToNearestOrigin() {
         var leftDays = (currentOrigin.x / (widthPerDay + columnGap)).toDouble()
 
-        if (currentFlingDirection != NONE) {
-            // snap to nearest day
-            leftDays = Math.round(leftDays).toDouble()
-        } else if (currentScrollDirection == LEFT) {
-            // snap to last day
-            leftDays = Math.floor(leftDays)
-        } else if (currentScrollDirection == RIGHT) {
-            // snap to next day
-            leftDays = Math.ceil(leftDays)
-        } else {
-            // snap to nearest day
-            leftDays = Math.round(leftDays).toDouble()
+        leftDays = when {
+            currentFlingDirection != NONE -> // snap to nearest day
+                Math.round(leftDays).toDouble()
+            currentScrollDirection == LEFT -> // snap to last day
+                Math.floor(leftDays)
+            currentScrollDirection == RIGHT -> // snap to next day
+                Math.ceil(leftDays)
+            else -> // snap to nearest day
+                Math.round(leftDays).toDouble()
         }
 
         val nearestOrigin = (currentOrigin.x - leftDays * (widthPerDay + columnGap)).toInt()
@@ -462,17 +482,20 @@ class CalendarView : View {
         timeTextWidth = 0f
         for (i in 0..23) {
             // Measure time string and get max width.
+            //TODO maybe here is needed to throw an exception if time will be null
+            // ?: throw IllegalStateException("A DateTimeInterpreter must not return null time")
             val time = dateTimeInterpreter.interpretTime(i)
-                    ?: throw IllegalStateException("A DateTimeInterpreter must not return null time")
             timeTextWidth = Math.max(timeTextWidth, timeTextPaint.measureText(time))
         }
     }
 
     private fun goToHour(hour: Float) {
 
+        //TODO Needed implementation
     }
 
     private fun goToDate(date: Calendar) {
+        return
         scroller.forceFinished(true)
         currentFlingDirection = NONE
 
@@ -518,38 +541,46 @@ class CalendarView : View {
      * @param canvas The canvas to draw upon.
      */
     private fun drawEvents(date: Calendar, startFropixel: Float, canvas: Canvas) {
-        if (eventRects.isNotEmpty()) {
-            for (i in eventRects.indices) {
-                if (isSameDay(eventRects[i].event.startTime, date)) {
+        if (eventRects.isNullOrEmpty()) {
+            return
+        }
+        for (i in eventRects.indices) {
+            if (isSameDay(eventRects[i].event.startTime, date)) {
 
-                    // Calculate top.
-                    val top = hourHeight.toFloat() * 24f * eventRects[i].top / 1440 + currentOrigin.y + headerTextHeight + (headerRowPadding * 2).toFloat() + headerMarginBottom + timeTextHeight / 2 + eventMarginVertical.toFloat()
+                // Calculate top.
+                val top = hourHeight.toFloat() * 24f * eventRects[i].top / 1440 +
+                        currentOrigin.y + headerTextHeight + (headerRowPadding * 2).toFloat() +
+                        headerMarginBottom + timeTextHeight / 2 + eventMarginVertical.toFloat()
 
-                    // Calculate bottom.
-                    var bottom = eventRects[i].bottom
-                    bottom = hourHeight.toFloat() * 24f * bottom / 1440 + currentOrigin.y + headerTextHeight + (headerRowPadding * 2).toFloat() + headerMarginBottom + timeTextHeight / 2 - eventMarginVertical
+                // Calculate bottom.
+                var bottom = eventRects[i].bottom
+                bottom = hourHeight.toFloat() * 24f * bottom / 1440 + currentOrigin.y +
+                        headerTextHeight + (headerRowPadding * 2).toFloat() +
+                        headerMarginBottom + timeTextHeight / 2 - eventMarginVertical
 
-                    // Calculate left and right.
-                    var left = startFropixel + eventRects[i].left * widthPerDay
-                    if (left < startFropixel)
-                        left += overlappingEventGap.toFloat()
-                    var right = left + eventRects[i].width * widthPerDay
-                    if (right < startFropixel + widthPerDay)
-                        right -= overlappingEventGap.toFloat()
+                // Calculate left and right.
+                var left = startFropixel + eventRects[i].left * widthPerDay
+                if (left < startFropixel)
+                    left += overlappingEventGap.toFloat()
+                var right = left + eventRects[i].width * widthPerDay
+                if (right < startFropixel + widthPerDay)
+                    right -= overlappingEventGap.toFloat()
 
-                    // Draw the event and the event name on top of it.
-                    if (left < right &&
-                            left < width &&
-                            top < height &&
-                            right > headerColumnWidth &&
-                            bottom > headerTextHeight + (headerRowPadding * 2).toFloat() + timeTextHeight / 2 + headerMarginBottom) {
-                        eventRects[i].rectF = RectF(left, top, right, bottom)
-                        eventBackgroundPaint.color = if (eventRects[i].event.color == 0) defaultEventColor else eventRects[i].event.color
-                        canvas.drawRoundRect(eventRects[i].rectF, eventCornerRadius.toFloat(), eventCornerRadius.toFloat(), eventBackgroundPaint)
-                        drawEventTitle(eventRects[i].event, eventRects[i].rectF, canvas, top, left)
-                    } else
-                        eventRects[i].rectF = null
-                }
+                // Draw the event and the event name on top of it.
+                if (left < right && left < width && top < height && right > headerColumnWidth &&
+                        bottom > headerTextHeight + (headerRowPadding * 2).toFloat() + timeTextHeight / 2 + headerMarginBottom) {
+                    eventRects[i].rectF = RectF(left, top, right, bottom)
+                    eventBackgroundPaint.color = if (eventRects[i].event.color == 0) defaultEventColor else eventRects[i].event.color
+                    @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
+                    canvas.drawRoundRect(
+                            eventRects[i].rectF,
+                            eventCornerRadius.toFloat(),
+                            eventCornerRadius.toFloat(),
+                            eventBackgroundPaint
+                    )
+                    drawEventTitle(eventRects[i].event, eventRects[i].rectF, canvas, top, left)
+                } else
+                    eventRects[i].rectF = null
             }
         }
     }
@@ -569,16 +600,12 @@ class CalendarView : View {
 
         // Prepare the name of the event.
         val bob = SpannableStringBuilder()
-        if (event.name != null) {
-            bob.append(event.name)
-            bob.setSpan(StyleSpan(Typeface.BOLD), 0, bob.length, 0)
-            bob.append(' ')
-        }
+        bob.append(event.name)
+        bob.setSpan(StyleSpan(Typeface.BOLD), 0, bob.length, 0)
+        bob.append(' ')
 
         // Prepare the location of the event.
-        if (event.location != null) {
-            bob.append(event.location)
-        }
+        bob.append(event.location)
 
         val availableHeight = (rect.bottom - originalTop - (eventPadding * 2).toFloat()).toInt()
         val availableWidth = (rect.right - originalLeft - (eventPadding * 2).toFloat()).toInt()
@@ -615,11 +642,11 @@ class CalendarView : View {
      * @param y The y position of the touch event.
      * @return The time and date at the clicked position.
      */
-    private fun getTimeFropoint(x: Float, y: Float): Calendar? {
+    private fun getTimeForPoint(x: Float, y: Float): Calendar? {
         val leftDaysWithGaps = (-Math.ceil((currentOrigin.x / (widthPerDay + columnGap)).toDouble())).toInt()
         var startPixel = currentOrigin.x + (widthPerDay + columnGap) * leftDaysWithGaps +
                 headerColumnWidth
-        for (dayNumber in leftDaysWithGaps + 1..leftDaysWithGaps + numberOfVisibleDays + 1) {
+        for (dayNumber in leftDaysWithGaps + 1..leftDaysWithGaps + numberOfStaff + 1) {
             val start = if (startPixel < headerColumnWidth) headerColumnWidth else startPixel
             if (widthPerDay + startPixel - start > 0 && x > start && x < startPixel + widthPerDay) {
                 val day = today()
@@ -647,63 +674,67 @@ class CalendarView : View {
     private fun getMoreEvents(day: Calendar) {
         // Get more events if the month is changed.
         if (eventRects == null)
-           eventRects = ArrayList<EventRect>()
+            eventRects = ArrayList<EventRect>()
         if (weekViewLoader == null && !isInEditMode)
             throw IllegalStateException("You must provide a MonthChangeListener")
 
         // If a refresh was requested then reset some variables.
         if (refreshEvents) {
-           eventRects.clear()
-           previousPeriodEvents = null
-           currentPeriodEvents = null
+            eventRects.clear()
+            previousPeriodEvents = null
+            currentPeriodEvents = null
             nextPeriodEvents = null
             fetchedPeriod = (-1).toDouble()
         }
 
         if (weekViewLoader != null) {
             val periodToFetch = weekViewLoader.toWeekViewPeriodIndex(day)
-            if (!isInEditMode && (fetchedPeriod < 0 || fetchedPeriod != periodToFetch ||refreshEvents)) {
+            if (!isInEditMode && (fetchedPeriod < 0 || fetchedPeriod != periodToFetch || refreshEvents)) {
                 var previousPeriodEvents: List<WeekViewEvent>? = null
                 var currentPeriodEvents: List<WeekViewEvent>? = null
                 var nextPeriodEvents: List<WeekViewEvent>? = null
 
-                if (previousPeriodEvents != null &&currentPeriodEvents != null && nextPeriodEvents != null) {
-                    if (periodToFetch == fetchedPeriod - 1) {
-                        currentPeriodEvents =previousPeriodEvents
-                        nextPeriodEvents =currentPeriodEvents
-                    } else if (periodToFetch == fetchedPeriod) {
-                        previousPeriodEvents =previousPeriodEvents
-                        currentPeriodEvents =currentPeriodEvents
-                        nextPeriodEvents = nextPeriodEvents
-                    } else if (periodToFetch == fetchedPeriod + 1) {
-                        previousPeriodEvents =currentPeriodEvents
-                        currentPeriodEvents = nextPeriodEvents
+                if (previousPeriodEvents != null && currentPeriodEvents != null && nextPeriodEvents != null) {
+                    when (periodToFetch) {
+                        fetchedPeriod - 1 -> {
+                            currentPeriodEvents = previousPeriodEvents
+                            nextPeriodEvents = currentPeriodEvents
+                        }
+                        fetchedPeriod -> {
+                            previousPeriodEvents = previousPeriodEvents
+                            currentPeriodEvents = currentPeriodEvents
+                            nextPeriodEvents = nextPeriodEvents
+                        }
+                        fetchedPeriod + 1 -> {
+                            previousPeriodEvents = currentPeriodEvents
+                            currentPeriodEvents = nextPeriodEvents
+                        }
                     }
                 }
                 if (currentPeriodEvents == null)
-                    currentPeriodEvents =weekViewLoader.onLoad(periodToFetch.toInt())
+                    currentPeriodEvents = weekViewLoader.onLoad(periodToFetch.toInt())
                 if (previousPeriodEvents == null)
-                    previousPeriodEvents =weekViewLoader.onLoad(periodToFetch.toInt() - 1)
+                    previousPeriodEvents = weekViewLoader.onLoad(periodToFetch.toInt() - 1)
                 if (nextPeriodEvents == null)
-                    nextPeriodEvents =weekViewLoader.onLoad(periodToFetch.toInt() + 1)
+                    nextPeriodEvents = weekViewLoader.onLoad(periodToFetch.toInt() + 1)
 
 
                 // Clear events.
-               eventRects.clear()
+                eventRects.clear()
                 sortAndCacheEvents(previousPeriodEvents)
                 sortAndCacheEvents(currentPeriodEvents)
                 sortAndCacheEvents(nextPeriodEvents)
 
-               previousPeriodEvents = previousPeriodEvents
-               currentPeriodEvents = currentPeriodEvents
-                nextPeriodEvents = nextPeriodEvents
+//                previousPeriodEvents = previousPeriodEvents
+//                currentPeriodEvents = currentPeriodEvents
+//                nextPeriodEvents = nextPeriodEvents
                 fetchedPeriod = periodToFetch
             }
         }
 
         // Prepare to calculate positions of each events.
-        val tempEvents =eventRects
-       eventRects = ArrayList<EventRect>()
+        val tempEvents = eventRects
+        eventRects = ArrayList<EventRect>()
 
         // Iterate through each day with events to calculate the position of the events.
         while (tempEvents.size > 0) {
@@ -827,7 +858,249 @@ class CalendarView : View {
             }
         }
     }
-    
+
+    private fun drawHourLine(canvas: Canvas) {
+        // Calculate the available width for each day.
+        headerColumnWidth = timeTextWidth + headerColumnPadding * 2
+        widthPerDay = width - headerColumnWidth - columnGap * (numberOfVisibleDays - 1)
+        widthPerDay /= numberOfVisibleDays
+
+        val today: Calendar = today()
+
+        if (areDimensionsInvalid) {
+            effectiveMinHourHeight = Math.max(minHourHeight, ((height - headerTextHeight - headerRowPadding * 2 - headerMarginBottom) / 24).toInt())
+
+            areDimensionsInvalid = false
+            scrollToDay?.let {
+                goToDate(it)
+            }
+
+            areDimensionsInvalid = false
+            if (scrollToHour >= 0)
+                goToHour(scrollToHour)
+
+            scrollToDay = null
+            scrollToHour = -1f
+            areDimensionsInvalid = false
+        }
+        if (isFirstDraw) {
+            isFirstDraw = false
+
+            // If the week view is being drawn for the first time, then consider the first day of the week.
+            if (numberOfStaff >= 7 && today.get(Calendar.DAY_OF_WEEK) != firstDayOfWeek) {
+                val difference = 7 + (today.get(Calendar.DAY_OF_WEEK) - firstDayOfWeek)
+                currentOrigin.x += (widthPerDay + columnGap) * difference
+            }
+        }
+
+        // Calculate the new height due to the zooming.
+        if (newHourHeight > 0) {
+            if (newHourHeight < effectiveMinHourHeight)
+                newHourHeight = effectiveMinHourHeight
+            else if (newHourHeight > maxHourHeight)
+                newHourHeight = maxHourHeight
+
+            currentOrigin.y = (currentOrigin.y / hourHeight) * newHourHeight
+            hourHeight = newHourHeight
+            newHourHeight = -1
+        }
+
+        // If the new currentOrigin.y is invalid, make it valid.
+        val originHeight = height - hourHeight * 24 - headerTextHeight - headerRowPadding * 2 - headerMarginBottom - timeTextHeight / 2
+        if (currentOrigin.y < originHeight) {
+            currentOrigin.y = originHeight
+        }
+
+        // Don't put an "else if" because it will trigger a glitch when completely zoomed out and
+        // scrolling vertically.
+        if (currentOrigin.y > 0) {
+            currentOrigin.y = 0f
+        }
+
+        //test
+        if (currentOrigin.x > 0) {
+            currentOrigin.x = 0f
+        }
+        val originWidth = -widthPerDay * numberOfStaff
+        if (currentOrigin.x < originWidth) {
+            currentOrigin.x = originWidth
+        }
+
+        // Consider scroll offset.
+        val leftDaysWithGaps = -(Math.ceil(currentOrigin.x.toDouble() / (widthPerDay + columnGap))).toInt()
+        val startFropixel = currentOrigin.x + (widthPerDay + columnGap) * leftDaysWithGaps + headerColumnWidth
+        var startPixel = startFropixel
+
+        // Prepare to iterate for each day.
+        val day = today.clone()
+        (day as Calendar).add(Calendar.HOUR, 6)
+
+        // Prepare to iterate for each hour to draw the hour lines.
+        var lineCount = ((height - headerTextHeight - headerRowPadding * 2 - headerMarginBottom) / hourHeight) + 1
+        lineCount *= (numberOfStaff + 1)
+        val hourLines = FloatArray(lineCount.toInt() * 4)
+
+        // Clear the cache for event rectangles.
+        eventRects?.let {
+            for (eventRect: EventRect in it) {
+                eventRect.rectF = null
+            }
+        }
+
+        // Clip to paint events only.
+        canvas.clipRect(
+                headerColumnWidth,
+                headerTextHeight + headerRowPadding * 2 + headerMarginBottom + timeTextHeight / 2,
+                width.toFloat(),
+                height.toFloat(),
+                Region.Op.REPLACE
+        )
+
+        // Iterate through each day.
+        val oldFirstVisibleDay = firstVisibleDay
+        firstVisibleDay = today.clone() as Calendar
+        firstVisibleDay?.add(Calendar.DATE, -(Math.round(currentOrigin.x / (widthPerDay + columnGap))))
+        firstVisibleDay?.let {
+            if (it != oldFirstVisibleDay) {
+                oldFirstVisibleDay?.let { it1 -> scrollListener.onFirstVisibleDayChanged(it, it1) }
+            }
+        }
+
+        val begin = leftDaysWithGaps + 1
+        val end = leftDaysWithGaps + numberOfStaff + 1
+        for (dayNumber in begin..end) {
+            // Check if the day is today.
+            val day = today.clone()
+            val lastVisibleDay = (day as Calendar).clone()
+            day.add(Calendar.DATE, dayNumber - 1)
+            (lastVisibleDay as Calendar).add(Calendar.DATE, dayNumber - 2)
+            val sameDay = isSameDay(day, today)
+
+            // Get more events if necessary. We want to store the events 3 months beforehand. Get
+            // events only when it is the first iteration of the loop.
+            if (eventRects == null || refreshEvents ||
+                    (dayNumber == leftDaysWithGaps + 1 && fetchedPeriod != weekViewLoader.toWeekViewPeriodIndex(day) &&
+                            Math.abs(fetchedPeriod - weekViewLoader.toWeekViewPeriodIndex(day)) > 0.5)) {
+                getMoreEvents(day)
+                refreshEvents = false
+            }
+
+            //Fixme
+            // Draw background color for each day.
+            val start = if (startPixel < headerColumnWidth) {
+                headerColumnWidth
+            } else {
+                startPixel
+            }
+            if (widthPerDay + startPixel - start > 0) {
+                if (showDistinctPastFutureColor) {
+                    val isWeekend = day.get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY || day.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY
+//                    val pastPaint: Paint = if (isWeekend && showDistinctWeekendColor) {
+//                        pastWeekendBackgroundPaint
+//                    } else {
+//                        pastBackgroundPaint
+//                    }
+                    val futurePaint: Paint = if (isWeekend && showDistinctWeekendColor) {
+                        futureWeekendBackgroundPaint
+                    } else {
+                        futureBackgroundPaint
+                    }
+                    val startY = headerTextHeight + headerRowPadding * 2 + timeTextHeight / 2 + headerMarginBottom + currentOrigin.y
+
+                    when {
+                        sameDay -> {
+                            val now = Calendar.getInstance()
+                            val beforeNow = (now.get(Calendar.HOUR_OF_DAY) + now.get(Calendar.MINUTE)/60.0f) * hourHeight
+//                            canvas.drawRect(start, startY, startPixel + widthPerDay, startY+beforeNow, pastPaint)
+                            canvas.drawRect(start, startY+beforeNow, startPixel + widthPerDay, height.toFloat(), futurePaint)
+                        }
+//                        day.before(today) -> canvas.drawRect(start, startY, startPixel + widthPerDay, height.toFloat(), pastPaint)
+                        else -> canvas.drawRect(start, startY, startPixel + widthPerDay, height.toFloat(), futurePaint)
+                    }
+                }
+                else {
+                    val backgroundPaint = if (sameDay) {
+                        todayBackgroundPaint
+                    } else {
+                        dayBackgroundPaint
+                    }
+                    //OK
+                    if (!day.before(today)) {
+                        canvas.drawRect(start, headerTextHeight + headerRowPadding * 2 + timeTextHeight / 2 + headerMarginBottom, startPixel + widthPerDay, height.toFloat(), backgroundPaint)
+                    }
+                }
+            }
+
+            // Prepare the separator lines for hours.
+            var i = 0
+            for (hourNumber in 0..23) {
+                val top = headerTextHeight + headerRowPadding * 2 + currentOrigin.y + hourHeight * hourNumber + timeTextHeight / 2 + headerMarginBottom
+                if (top > headerTextHeight + headerRowPadding * 2 + timeTextHeight / 2 + headerMarginBottom - hourSeparatorHeight && top < height && startPixel + widthPerDay - start > 0) {
+                    hourLines[i * 4] = start
+                    hourLines[i * 4 + 1] = top
+                    hourLines[i * 4 + 2] = startPixel + widthPerDay
+                    hourLines[i * 4 + 3] = top
+                    i++
+                }
+            }
+
+            if (!day.before(today)) {
+                // Draw the lines for hours.
+                canvas.drawLines(hourLines, hourSeparatorPaint)
+                // Draw the events.
+                drawEvents(day, startPixel, canvas)
+            }
+
+            // Draw the line at the current time.
+            if (showNowLine && sameDay) {
+                val startY = headerTextHeight + headerRowPadding * 2 + timeTextHeight / 2 + headerMarginBottom + currentOrigin.y
+                val now = Calendar.getInstance()
+                val beforeNow = (now.get(Calendar.HOUR_OF_DAY) + now.get(Calendar.MINUTE) / 60.0f) * hourHeight
+                canvas.drawLine(start, startY + beforeNow, startPixel + widthPerDay, startY + beforeNow, nowLinePaint)
+            }
+
+            // In the next iteration, start from the next day.
+            startPixel += widthPerDay + columnGap
+
+        }
+
+
+        // Clip to paint header row only.
+        canvas.clipRect(headerColumnWidth, 0f, width.toFloat(), headerTextHeight + headerRowPadding * 2, Region.Op.REPLACE)
+
+        // Draw the header background.
+        canvas.drawRect(0f, 0f, width.toFloat(), headerTextHeight + headerRowPadding * 2, headerBackgroundPaint)
+
+
+
+
+
+
+        // TODO this header must move up than staff header. Also, must implement day header corresponding design
+        /*** Draw the header row texts. ***/
+        startPixel = startFropixel
+        for (dayNumber in begin..end) {
+            // Check if the day is today.
+            val day = today.clone()
+            (day as Calendar).add(Calendar.DATE, dayNumber - 1)
+            val sameDay = isSameDay(day, today)
+            /*** Draw the day labels. ***/
+            val dayLabel = dateTimeInterpreter.interpretDate(day) ?: throw IllegalStateException("A DateTimeInterpreter must not return null date")
+            val headerPaint = if (sameDay) {
+                todayHeaderTextPaint
+            } else {
+                headerTextPaint
+            }
+            bitmap?.let {
+                canvas.drawBitmap(bitmap, startPixel + widthPerDay / 2, headerTextHeight + headerRowPadding, headerPaint)
+            }
+            canvas.drawText(dayLabel, startPixel + widthPerDay / 2, headerTextHeight + headerRowPadding, headerPaint)
+            startPixel += widthPerDay + columnGap
+            /*** *** ***/
+        }
+        /*** *** ***/
+    }
+
     private fun drawTimeColumnAndAxes(canvas: Canvas) {
         // Draw the background color for the header column.
         canvas.drawRect(
@@ -854,229 +1127,6 @@ class CalendarView : View {
             val time = dateTimeInterpreter.interpretTime(i)
             if (top < height) canvas.drawText(time, timeTextWidth + headerColumnPadding, top + timeTextHeight, timeTextPaint)
         }
-    }
-    
-    private fun drawHeaderRowAndEvents(canvas: Canvas) {
-        // Calculate the available width for each day.
-        headerColumnWidth = timeTextWidth + headerColumnPadding * 2
-        widthPerDay = width - headerColumnWidth - columnGap * (numberOfVisibleDays - 1)
-        widthPerDay /= numberOfVisibleDays
-
-        val today: Calendar = today()
-
-        if (areDimensionsInvalid) {
-            effectiveMinHourHeight= Math.max(minHourHeight, ((height - headerTextHeight - headerRowPadding * 2 - headerMarginBottom) / 24).toInt())
-
-            areDimensionsInvalid = false
-            scrollToDay?.let {
-                goToDate(it)
-            }
-
-            areDimensionsInvalid = false
-            if(scrollToHour >= 0)
-                goToHour(scrollToHour)
-
-            scrollToDay = null
-            scrollToHour = -1f
-            areDimensionsInvalid = false
-        }
-        if (isFirstDraw){
-            isFirstDraw = false
-
-            // If the week view is being drawn for the first time, then consider the first day of the week.
-            if(numberOfVisibleDays >= 7 && today.get(Calendar.DAY_OF_WEEK) != firstDayOfWeek) {
-                val difference = 7 + (today.get(Calendar.DAY_OF_WEEK) - firstDayOfWeek)
-                currentOrigin.x += (widthPerDay + columnGap) * difference
-            }
-        }
-
-        // Calculate the new height due to the zooming.
-        if (newHourHeight > 0){
-            if (newHourHeight < effectiveMinHourHeight)
-                newHourHeight = effectiveMinHourHeight
-            else if (newHourHeight > maxHourHeight)
-                newHourHeight = maxHourHeight
-
-            currentOrigin.y = (currentOrigin.y/hourHeight)*newHourHeight
-            hourHeight = newHourHeight
-            newHourHeight = -1
-        }
-
-        // If the new currentOrigin.y is invalid, make it valid.
-        if (currentOrigin.y < height - hourHeight * 24 - headerTextHeight - headerRowPadding * 2 - headerMarginBottom - timeTextHeight/2)
-            currentOrigin.y = height - hourHeight * 24 - headerTextHeight - headerRowPadding * 2 - headerMarginBottom - timeTextHeight/2
-
-        // Don't put an "else if" because it will trigger a glitch when completely zoomed out and
-        // scrolling vertically.
-        if (currentOrigin.y > 0) {
-            currentOrigin.y = 0f
-        }
-
-        // Consider scroll offset.
-        val leftDaysWithGaps = -(Math.ceil(currentOrigin.x.toDouble() / (widthPerDay + columnGap))).toInt()
-        val startFropixel = currentOrigin.x + (widthPerDay + columnGap) * leftDaysWithGaps + headerColumnWidth
-        var startPixel = startFropixel
-
-        // Prepare to iterate for each day.
-        val day = today.clone()
-        (day as Calendar).add(Calendar.HOUR, 6)
-
-        // Prepare to iterate for each hour to draw the hour lines.
-        var lineCount = ((height - headerTextHeight - headerRowPadding * 2 - headerMarginBottom) / hourHeight) + 1
-        lineCount *= (numberOfVisibleDays + 1)
-        val hourLines = FloatArray(lineCount.toInt() * 4)
-
-        // Clear the cache for event rectangles.
-        eventRects?.let {
-            for (eventRect: EventRect in it) {
-                eventRect.rectF = null
-            }
-        }
-
-        // Clip to paint events only.
-        canvas.clipRect(
-                headerColumnWidth,
-                headerTextHeight + headerRowPadding * 2 + headerMarginBottom + timeTextHeight/2,
-                width.toFloat(),
-                height.toFloat(),
-                Region.Op.REPLACE
-        )
-
-        // Iterate through each day.
-        val oldFirstVisibleDay = firstVisibleDay
-        firstVisibleDay = today.clone() as Calendar
-        firstVisibleDay?.add(Calendar.DATE, -(Math.round(currentOrigin.x / (widthPerDay + columnGap))))
-        firstVisibleDay?.let {
-            if(it != oldFirstVisibleDay){
-                oldFirstVisibleDay?.let { it1 -> scrollListener.onFirstVisibleDayChanged(it, it1) }
-            }
-        }
-
-        val begin = leftDaysWithGaps + 1
-        val end = leftDaysWithGaps + numberOfVisibleDays + 1
-        for ( dayNumber in begin..end) {
-            // Check if the day is today.
-            val day = today.clone()
-            val lastVisibleDay = (day as Calendar).clone()
-            day.add(Calendar.DATE, dayNumber - 1);
-            (lastVisibleDay as Calendar).add(Calendar.DATE, dayNumber - 2)
-            val sameDay = isSameDay(day, today)
-
-            // Get more events if necessary. We want to store the events 3 months beforehand. Get
-            // events only when it is the first iteration of the loop.
-            if (eventRects == null || refreshEvents ||
-                    (dayNumber == leftDaysWithGaps + 1 && fetchedPeriod != weekViewLoader.toWeekViewPeriodIndex(day) &&
-                            Math.abs(fetchedPeriod - weekViewLoader.toWeekViewPeriodIndex(day)) > 0.5)) {
-                getMoreEvents(day)
-                refreshEvents = false
-            }
-
-            //Fixme 
-            // Draw background color for each day.
-            val start =  if (startPixel < headerColumnWidth) {
-                headerColumnWidth
-            } else {
-                startPixel
-            }
-            if (widthPerDay + startPixel - start > 0){
-                if (showDistinctPastFutureColor){
-                    val isWeekend = day.get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY || day.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY
-                    val pastPaint: Paint = if (isWeekend && showDistinctWeekendColor) {
-                        pastWeekendBackgroundPaint
-                    } else {
-                        pastBackgroundPaint
-                    }
-                    val futurePaint:Paint = if (isWeekend && showDistinctWeekendColor) {
-                        futureWeekendBackgroundPaint
-                    } else {
-                        futureBackgroundPaint
-                    }
-                    val startY = headerTextHeight + headerRowPadding * 2 + timeTextHeight/2 + headerMarginBottom + currentOrigin.y
-
-                    when {
-                        sameDay -> {
-                            val now = Calendar.getInstance()
-                            val beforeNow = (now.get(Calendar.HOUR_OF_DAY) + now.get(Calendar.MINUTE)/60.0f) * hourHeight;
-                            canvas.drawRect(start, startY, startPixel + widthPerDay, startY+beforeNow, pastPaint);
-                            canvas.drawRect(start, startY+beforeNow, startPixel + widthPerDay, height.toFloat(), futurePaint);
-                        }
-                        day.before(today) -> canvas.drawRect(start, startY, startPixel + widthPerDay, height.toFloat(), pastPaint)
-                        else -> canvas.drawRect(start, startY, startPixel + widthPerDay, height.toFloat(), futurePaint)
-                    }
-                }
-                else {
-                    val backgroundPaint = if (sameDay) {
-                        todayBackgroundPaint
-                    } else {
-                        dayBackgroundPaint
-                    }
-                    canvas.drawRect(start, headerTextHeight + headerRowPadding * 2 + timeTextHeight / 2 + headerMarginBottom, startPixel + widthPerDay, height.toFloat(), backgroundPaint)
-                }
-            }
-
-            // Prepare the separator lines for hours.
-            var i = 0
-            for (hourNumber in 0..23) {
-            val top = headerTextHeight + headerRowPadding * 2 + currentOrigin.y + hourHeight * hourNumber + timeTextHeight/2 + headerMarginBottom
-            if (top > headerTextHeight + headerRowPadding * 2 + timeTextHeight/2 + headerMarginBottom - hourSeparatorHeight && top < height && startPixel + widthPerDay - start > 0) {
-                hourLines[i * 4] = start
-                hourLines[i * 4 + 1] = top
-                hourLines[i * 4 + 2] = startPixel + widthPerDay
-                hourLines[i * 4 + 3] = top
-                i++
-            }
-        }
-
-            // Draw the lines for hours.
-            canvas.drawLines(hourLines, hourSeparatorPaint);
-
-            // Draw the events.
-            drawEvents(day, startPixel, canvas)
-
-            // Draw the line at the current time.
-            if (showNowLine && sameDay){
-                val startY = headerTextHeight + headerRowPadding * 2 + timeTextHeight/2 + headerMarginBottom + currentOrigin.y
-                val now = Calendar.getInstance()
-                val beforeNow = (now.get(Calendar.HOUR_OF_DAY) + now.get(Calendar.MINUTE)/60.0f) * hourHeight
-                canvas.drawLine(start, startY + beforeNow, startPixel + widthPerDay, startY + beforeNow, nowLinePaint)
-            }
-
-            // In the next iteration, start from the next day.
-            startPixel += widthPerDay + columnGap;
-        }
-
-
-        // Clip to paint header row only.
-        canvas.clipRect(headerColumnWidth, 0f, width.toFloat(), headerTextHeight + headerRowPadding * 2, Region.Op.REPLACE)
-
-        // Draw the header background.
-        canvas.drawRect(0f, 0f, width.toFloat(), headerTextHeight + headerRowPadding * 2, headerBackgroundPaint)
-
-
-
-
-
-
-        // TODO this header must move up than staff header. Also, must implement day header corresponding design
-        /*** Draw the header row texts. ***/
-//        startPixel = startFropixel
-//        for (dayNumber in begin..end) {
-//            // Check if the day is today.
-//            val day = today.clone()
-//            (day as Calendar).add(Calendar.DATE, dayNumber - 1)
-//            val sameDay = isSameDay(day, today)
-//            /*** Draw the day labels. ***/
-//            val dayLabel = dateTimeInterpreter.interpretDate(day) ?: throw IllegalStateException("A DateTimeInterpreter must not return null date")
-//            val headerPaint = if (sameDay) {
-//                todayHeaderTextPaint
-//            } else {
-//                headerTextPaint
-//            }
-//            canvas.drawText(dayLabel, startPixel + widthPerDay / 2, headerTextHeight + headerRowPadding, headerPaint)
-//            startPixel += widthPerDay + columnGap
-//            /*** *** ***/
-//        }
-        /*** *** ***/
     }
 
     /**
@@ -1143,8 +1193,8 @@ class CalendarView : View {
      */
     private fun sortEvents(events: List<WeekViewEvent>) {
         Collections.sort(events) { event1, event2 ->
-            val start1= event1.startTime?.timeInMillis ?: 0L
-            val start2= event2.startTime?.timeInMillis ?: 0L
+            val start1 = event1.startTime?.timeInMillis ?: 0L
+            val start2 = event2.startTime?.timeInMillis ?: 0L
             var comparator = if (start1 > start2) 1 else if (start1 < start2) -1 else 0
             if (comparator == 0) {
                 val end1 = event1.endTime?.timeInMillis ?: 0L
@@ -1182,7 +1232,8 @@ class CalendarView : View {
         var bottom: Float = 0.toFloat()
     }
 
-    private inner class DateTimeInterpreterImpl {//: DateTimeInterpreter {
+    private inner class DateTimeInterpreterImpl {
+        //: DateTimeInterpreter {
         //OK
         fun interpretTime(hour: Int): String {
             val calendar = Calendar.getInstance()
@@ -1231,7 +1282,7 @@ class CalendarView : View {
             Log.d("@@@@@@@@@@@@@@", "Clicked " + event.name)
         }
     }
-    
+
     inner class EmptyViewClickListenerImpl : EmptyViewClickListener {
         override fun onEmptyViewClicked(time: Calendar) {
             //TODO To change body of created functions use File | Settings | File Templates.
@@ -1259,8 +1310,8 @@ class CalendarView : View {
             }
 
             // If the tap was on in an empty space, then trigger the callback.
-            if (emptyViewClickListener != null && e.x > headerColumnWidth && e.y > headerTextHeight + (headerRowPadding * 2).toFloat() + headerMarginBottom) {
-                val selectedTime = getTimeFropoint(e.x, e.y)
+            if (e.x > headerColumnWidth && e.y > headerTextHeight + (headerRowPadding * 2).toFloat() + headerMarginBottom) {
+                val selectedTime = getTimeForPoint(e.x, e.y)
                 if (selectedTime != null) {
                     playSoundEffect(SoundEffectConstants.CLICK)
                     emptyViewClickListener.onEmptyViewClicked(selectedTime)
@@ -1281,29 +1332,29 @@ class CalendarView : View {
         }
 
         override fun onDown(e: MotionEvent?): Boolean {
-            goToNearestOrigin()
+//            goToNearestOrigin()
             return true
         }
 
         override fun onFling(e1: MotionEvent?, e2: MotionEvent?, velocityX: Float, velocityY: Float): Boolean {
-            if (isZooming)
-                return true
-
-            if (currentFlingDirection == LEFT && !horizontalFlingEnabled ||
-                    currentFlingDirection == RIGHT && !horizontalFlingEnabled ||
-                    currentFlingDirection == VERTICAL && !verticalFlingEnabled) {
-                return true
-            }
-
-            scroller.forceFinished(true)
-
-            currentFlingDirection = currentScrollDirection
-            when (currentFlingDirection) {
-                LEFT, RIGHT -> scroller.fling(currentOrigin.x.toInt(), currentOrigin.y.toInt(), (velocityX * xScrollingSpeed).toInt(), 0, Integer.MIN_VALUE, Integer.MAX_VALUE, (-((hourHeight * 24).toFloat() + headerTextHeight + (headerRowPadding * 2).toFloat() + headerMarginBottom + timeTextHeight / 2 - height)).toInt(), 0)
-                VERTICAL -> scroller.fling(currentOrigin.x.toInt(), currentOrigin.y.toInt(), 0, velocityY.toInt(), Integer.MIN_VALUE, Integer.MAX_VALUE, (-((hourHeight * 24).toFloat() + headerTextHeight + (headerRowPadding * 2).toFloat() + headerMarginBottom + timeTextHeight / 2 - height)).toInt(), 0)
-            }
-
-            ViewCompat.postInvalidateOnAnimation(this@CalendarView)
+//            if (isZooming)
+//                return true
+//
+//            if (currentFlingDirection == LEFT && !horizontalFlingEnabled ||
+//                    currentFlingDirection == RIGHT && !horizontalFlingEnabled ||
+//                    currentFlingDirection == VERTICAL && !verticalFlingEnabled) {
+//                return true
+//            }
+//
+//            scroller.forceFinished(true)
+//
+//            currentFlingDirection = currentScrollDirection
+//            when (currentFlingDirection) {
+//                LEFT, RIGHT -> scroller.fling(currentOrigin.x.toInt(), currentOrigin.y.toInt(), (velocityX * xScrollingSpeed).toInt(), 0, Integer.MIN_VALUE, Integer.MAX_VALUE, (-((hourHeight * 24).toFloat() + headerTextHeight + (headerRowPadding * 2).toFloat() + headerMarginBottom + timeTextHeight / 2 - height)).toInt(), 0)
+//                VERTICAL -> scroller.fling(currentOrigin.x.toInt(), currentOrigin.y.toInt(), 0, velocityY.toInt(), Integer.MIN_VALUE, Integer.MAX_VALUE, (-((hourHeight * 24).toFloat() + headerTextHeight + (headerRowPadding * 2).toFloat() + headerMarginBottom + timeTextHeight / 2 - height)).toInt(), 0)
+//            }
+//
+//            ViewCompat.postInvalidateOnAnimation(this@CalendarView)
             return true
         }
 
@@ -1325,18 +1376,18 @@ class CalendarView : View {
                         VERTICAL
                     }
                 }
-                LEFT -> {
-                    // Change direction if there was enough change.
-                    if (Math.abs(distanceX) > Math.abs(distanceY) && distanceX < -scaledTouchSlop) {
-                        currentScrollDirection = RIGHT
-                    }
-                }
-                RIGHT -> {
-                    // Change direction if there was enough change.
-                    if (Math.abs(distanceX) > Math.abs(distanceY) && distanceX > scaledTouchSlop) {
-                        currentScrollDirection = LEFT
-                    }
-                }
+//                LEFT -> {
+//                    // Change direction if there was enough change.
+//                    if (Math.abs(distanceX) > Math.abs(distanceY) && distanceX < -scaledTouchSlop) {
+//                        currentScrollDirection = RIGHT
+//                    }
+//                }
+//                RIGHT -> {
+//                    // Change direction if there was enough change.
+//                    if (Math.abs(distanceX) > Math.abs(distanceY) && distanceX > scaledTouchSlop) {
+//                        currentScrollDirection = LEFT
+//                    }
+//                }
             }
 
             // Calculate the new origin after scroll.

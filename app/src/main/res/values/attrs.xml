@@ -10,6 +10,7 @@
             <enum name="friday" value="6"/>
             <enum name="saturday" value="7"/>
         </attr>
+        <attr name="itemAmont" format="integer" />
         <attr name="hourHeight" format="dimension"/>
         <attr name="minHourHeight" format="dimension"/>
         <attr name="maxHourHeight" format="dimension"/>
