@@ -3,11 +3,7 @@ package com.mohsenshahini.widget
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.*
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Drawable
 import android.support.annotation.IntDef
-import android.support.graphics.drawable.VectorDrawableCompat
-import android.support.v4.content.ContextCompat
 import android.support.v4.view.GestureDetectorCompat
 import android.support.v4.view.ViewCompat
 import android.support.v4.view.animation.FastOutLinearInInterpolator
@@ -22,13 +18,9 @@ import android.widget.OverScroller
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
-import android.opengl.ETC1.getHeight
-import android.opengl.ETC1.getWidth
-import android.graphics.Bitmap
 
 
-
-class CalendarView : View {
+class CalendarEmploView : View {
 
     internal interface WeekViewLoader {
         /**
@@ -471,7 +463,7 @@ class CalendarView : View {
             scroller.forceFinished(true)
             // Snap to date.
             scroller.startScroll(currentOrigin.x.toInt(), currentOrigin.y.toInt(), -nearestOrigin, 0, (Math.abs(nearestOrigin) / widthPerDay * 500).toInt())
-            ViewCompat.postInvalidateOnAnimation(this@CalendarView)
+            ViewCompat.postInvalidateOnAnimation(this@CalendarEmploView)
         }
         // Reset scrolling and fling direction.
         currentFlingDirection = NONE
@@ -1394,11 +1386,11 @@ class CalendarView : View {
             when (currentScrollDirection) {
                 LEFT, RIGHT -> {
                     currentOrigin.x -= distanceX * xScrollingSpeed
-                    ViewCompat.postInvalidateOnAnimation(this@CalendarView)
+                    ViewCompat.postInvalidateOnAnimation(this@CalendarEmploView)
                 }
                 VERTICAL -> {
                     currentOrigin.y -= distanceY * yScrollingSpeed
-                    ViewCompat.postInvalidateOnAnimation(this@CalendarView)
+                    ViewCompat.postInvalidateOnAnimation(this@CalendarEmploView)
                 }
             }
             return true
