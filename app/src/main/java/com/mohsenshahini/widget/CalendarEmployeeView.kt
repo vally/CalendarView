@@ -20,7 +20,7 @@ import java.util.*
 import kotlin.collections.ArrayList
 
 
-class CalendarEmploView : View {
+class CalendarEmployeeView : View {
 
     internal interface WeekViewLoader {
         /**
@@ -54,12 +54,12 @@ class CalendarEmploView : View {
         fun onFirstVisibleDayChanged(newFirstVisibleDay: Calendar, oldFirstVisibleDay: Calendar)
     }
 
-    interface EmptyViewClickListener {
+    interface EmptySpaceClickListener {
         /**
-         * Triggered when the users clicks on a empty space of the calendar.
+         * Triggered when the users clicks on a empty space of the [CalendarEmployeeView].
          * @param time: [Calendar] object set with the date and time of the clicked position on the view.
          */
-        fun onEmptyViewClicked(time: Calendar)
+        fun onEmptySpaceClicked(time: Calendar, staff: String)
     }
 
     interface MonthChangeListener {
@@ -206,7 +206,7 @@ class CalendarEmploView : View {
 
     /*** Listeners */
     private var scrollListener: ScrollListener = ScrollListenerImpl()
-    private var emptyViewClickListener: EmptyViewClickListener = EmptyViewClickListenerImpl()
+    private var emptySpaceClickListener: EmptySpaceClickListener = EmptySpaceClickListenerImpl()
     private var eventClickListener: EventClickListener = EventClickListenerImpl()
     private var dateTimeInterpreter = DateTimeInterpreterImpl()
     //    private lateinit var monthChangeListener: MonthChangeListener
@@ -222,45 +222,45 @@ class CalendarEmploView : View {
 
     constructor(context: Context, attrs: AttributeSet?, defStyleAttr: Int) : super(context, attrs, defStyleAttr) {
         // Get the attribute values (if any).
-        val a = context.theme.obtainStyledAttributes(attrs, R.styleable.CalendarView, 0, 0)
+        val a = context.theme.obtainStyledAttributes(attrs, R.styleable.CalendarEmployeeView, 0, 0)
         try {
-            firstDayOfWeek = a.getInteger(R.styleable.CalendarView_firstDayOfWeek, firstDayOfWeek)
-            hourHeight = a.getDimensionPixelSize(R.styleable.CalendarView_hourHeight, hourHeight)
-            minHourHeight = a.getDimensionPixelSize(R.styleable.CalendarView_minHourHeight, minHourHeight)
+            firstDayOfWeek = a.getInteger(R.styleable.CalendarEmployeeView_firstDayOfWeek, firstDayOfWeek)
+            hourHeight = a.getDimensionPixelSize(R.styleable.CalendarEmployeeView_hourHeight, hourHeight)
+            minHourHeight = a.getDimensionPixelSize(R.styleable.CalendarEmployeeView_minHourHeight, minHourHeight)
             effectiveMinHourHeight = minHourHeight
-            maxHourHeight = a.getDimensionPixelSize(R.styleable.CalendarView_maxHourHeight, maxHourHeight)
-            textSize = a.getDimensionPixelSize(R.styleable.CalendarView_textSize, TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, textSize.toFloat(), context.resources.displayMetrics).toInt())
-            headerColumnPadding = a.getDimensionPixelSize(R.styleable.CalendarView_headerColumnPadding, headerColumnPadding)
-            columnGap = a.getDimensionPixelSize(R.styleable.CalendarView_columnGap, columnGap)
-            headerColumnTextColor = a.getColor(R.styleable.CalendarView_headerColumnTextColor, headerColumnTextColor)
-            numberOfVisibleDays = a.getInteger(R.styleable.CalendarView_noOfVisibleDays, numberOfVisibleDays)
-            headerRowPadding = a.getDimensionPixelSize(R.styleable.CalendarView_headerRowPadding, headerRowPadding)
-            headerRowBackgroundColor = a.getColor(R.styleable.CalendarView_headerRowBackgroundColor, headerRowBackgroundColor)
-            dayBackgroundColor = a.getColor(R.styleable.CalendarView_dayBackgroundColor, dayBackgroundColor)
-            futureBackgroundColor = a.getColor(R.styleable.CalendarView_futureBackgroundColor, futureBackgroundColor)
-            pastBackgroundColor = a.getColor(R.styleable.CalendarView_pastBackgroundColor, pastBackgroundColor)
-            futureWeekendBackgroundColor = a.getColor(R.styleable.CalendarView_futureWeekendBackgroundColor, futureBackgroundColor) // If not set, use the same color as in the week
-            pastWeekendBackgroundColor = a.getColor(R.styleable.CalendarView_pastWeekendBackgroundColor, pastBackgroundColor)
-            nowLineColor = a.getColor(R.styleable.CalendarView_nowLineColor, nowLineColor)
-            nowLineThickness = a.getDimensionPixelSize(R.styleable.CalendarView_nowLineThickness, nowLineThickness)
-            hourSeparatorColor = a.getColor(R.styleable.CalendarView_hourSeparatorColor, hourSeparatorColor)
-            todayBackgroundColor = a.getColor(R.styleable.CalendarView_todayBackgroundColor, todayBackgroundColor)
-            hourSeparatorHeight = a.getDimensionPixelSize(R.styleable.CalendarView_hourSeparatorHeight, hourSeparatorHeight)
-            todayHeaderTextColor = a.getColor(R.styleable.CalendarView_todayHeaderTextColor, todayHeaderTextColor)
-            eventTextSize = a.getDimensionPixelSize(R.styleable.CalendarView_eventTextSize, TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, eventTextSize.toFloat(), context.resources.displayMetrics).toInt())
-            eventTextColor = a.getColor(R.styleable.CalendarView_eventTextColor, eventTextColor)
-            eventPadding = a.getDimensionPixelSize(R.styleable.CalendarView_eventPadding, eventPadding)
-            headerColumnBackgroundColor = a.getColor(R.styleable.CalendarView_headerColumnBackground, headerColumnBackgroundColor)
-            dayNameLength = a.getInteger(R.styleable.CalendarView_dayNameLength, dayNameLength)
-            overlappingEventGap = a.getDimensionPixelSize(R.styleable.CalendarView_overlappingEventGap, overlappingEventGap)
-            eventMarginVertical = a.getDimensionPixelSize(R.styleable.CalendarView_eventMarginVertical, eventMarginVertical)
-            xScrollingSpeed = a.getFloat(R.styleable.CalendarView_xScrollingSpeed, xScrollingSpeed)
-            eventCornerRadius = a.getDimensionPixelSize(R.styleable.CalendarView_eventCornerRadius, eventCornerRadius)
-            showDistinctPastFutureColor = a.getBoolean(R.styleable.CalendarView_showDistinctPastFutureColor, showDistinctPastFutureColor)
-            showDistinctWeekendColor = a.getBoolean(R.styleable.CalendarView_showDistinctWeekendColor, showDistinctWeekendColor)
-            showNowLine = a.getBoolean(R.styleable.CalendarView_showNowLine, showNowLine)
-            horizontalFlingEnabled = a.getBoolean(R.styleable.CalendarView_horizontalFlingEnabled, horizontalFlingEnabled)
-            verticalFlingEnabled = a.getBoolean(R.styleable.CalendarView_verticalFlingEnabled, verticalFlingEnabled)
+            maxHourHeight = a.getDimensionPixelSize(R.styleable.CalendarEmployeeView_maxHourHeight, maxHourHeight)
+            textSize = a.getDimensionPixelSize(R.styleable.CalendarEmployeeView_textSize, TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, textSize.toFloat(), context.resources.displayMetrics).toInt())
+            headerColumnPadding = a.getDimensionPixelSize(R.styleable.CalendarEmployeeView_headerColumnPadding, headerColumnPadding)
+            columnGap = a.getDimensionPixelSize(R.styleable.CalendarEmployeeView_columnGap, columnGap)
+            headerColumnTextColor = a.getColor(R.styleable.CalendarEmployeeView_headerColumnTextColor, headerColumnTextColor)
+            numberOfVisibleDays = a.getInteger(R.styleable.CalendarEmployeeView_noOfVisibleDays, numberOfVisibleDays)
+            headerRowPadding = a.getDimensionPixelSize(R.styleable.CalendarEmployeeView_headerRowPadding, headerRowPadding)
+            headerRowBackgroundColor = a.getColor(R.styleable.CalendarEmployeeView_headerRowBackgroundColor, headerRowBackgroundColor)
+            dayBackgroundColor = a.getColor(R.styleable.CalendarEmployeeView_dayBackgroundColor, dayBackgroundColor)
+            futureBackgroundColor = a.getColor(R.styleable.CalendarEmployeeView_futureBackgroundColor, futureBackgroundColor)
+            pastBackgroundColor = a.getColor(R.styleable.CalendarEmployeeView_pastBackgroundColor, pastBackgroundColor)
+            futureWeekendBackgroundColor = a.getColor(R.styleable.CalendarEmployeeView_futureWeekendBackgroundColor, futureBackgroundColor) // If not set, use the same color as in the week
+            pastWeekendBackgroundColor = a.getColor(R.styleable.CalendarEmployeeView_pastWeekendBackgroundColor, pastBackgroundColor)
+            nowLineColor = a.getColor(R.styleable.CalendarEmployeeView_nowLineColor, nowLineColor)
+            nowLineThickness = a.getDimensionPixelSize(R.styleable.CalendarEmployeeView_nowLineThickness, nowLineThickness)
+            hourSeparatorColor = a.getColor(R.styleable.CalendarEmployeeView_hourSeparatorColor, hourSeparatorColor)
+            todayBackgroundColor = a.getColor(R.styleable.CalendarEmployeeView_todayBackgroundColor, todayBackgroundColor)
+            hourSeparatorHeight = a.getDimensionPixelSize(R.styleable.CalendarEmployeeView_hourSeparatorHeight, hourSeparatorHeight)
+            todayHeaderTextColor = a.getColor(R.styleable.CalendarEmployeeView_todayHeaderTextColor, todayHeaderTextColor)
+            eventTextSize = a.getDimensionPixelSize(R.styleable.CalendarEmployeeView_eventTextSize, TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, eventTextSize.toFloat(), context.resources.displayMetrics).toInt())
+            eventTextColor = a.getColor(R.styleable.CalendarEmployeeView_eventTextColor, eventTextColor)
+            eventPadding = a.getDimensionPixelSize(R.styleable.CalendarEmployeeView_eventPadding, eventPadding)
+            headerColumnBackgroundColor = a.getColor(R.styleable.CalendarEmployeeView_headerColumnBackground, headerColumnBackgroundColor)
+            dayNameLength = a.getInteger(R.styleable.CalendarEmployeeView_dayNameLength, dayNameLength)
+            overlappingEventGap = a.getDimensionPixelSize(R.styleable.CalendarEmployeeView_overlappingEventGap, overlappingEventGap)
+            eventMarginVertical = a.getDimensionPixelSize(R.styleable.CalendarEmployeeView_eventMarginVertical, eventMarginVertical)
+            xScrollingSpeed = a.getFloat(R.styleable.CalendarEmployeeView_xScrollingSpeed, xScrollingSpeed)
+            eventCornerRadius = a.getDimensionPixelSize(R.styleable.CalendarEmployeeView_eventCornerRadius, eventCornerRadius)
+            showDistinctPastFutureColor = a.getBoolean(R.styleable.CalendarEmployeeView_showDistinctPastFutureColor, showDistinctPastFutureColor)
+            showDistinctWeekendColor = a.getBoolean(R.styleable.CalendarEmployeeView_showDistinctWeekendColor, showDistinctWeekendColor)
+            showNowLine = a.getBoolean(R.styleable.CalendarEmployeeView_showNowLine, showNowLine)
+            horizontalFlingEnabled = a.getBoolean(R.styleable.CalendarEmployeeView_horizontalFlingEnabled, horizontalFlingEnabled)
+            verticalFlingEnabled = a.getBoolean(R.styleable.CalendarEmployeeView_verticalFlingEnabled, verticalFlingEnabled)
         } finally {
             a.recycle()
         }
@@ -280,6 +280,10 @@ class CalendarEmploView : View {
 
     fun setOnEventClickListener(listener: EventClickListener) {
         eventClickListener = listener
+    }
+
+    fun setOnEmptySpaceListener(listener: EmptySpaceClickListener) {
+        emptySpaceClickListener = listener
     }
 
     @Suppress("unused")
@@ -463,7 +467,7 @@ class CalendarEmploView : View {
             scroller.forceFinished(true)
             // Snap to date.
             scroller.startScroll(currentOrigin.x.toInt(), currentOrigin.y.toInt(), -nearestOrigin, 0, (Math.abs(nearestOrigin) / widthPerDay * 500).toInt())
-            ViewCompat.postInvalidateOnAnimation(this@CalendarEmploView)
+            ViewCompat.postInvalidateOnAnimation(this@CalendarEmployeeView)
         }
         // Reset scrolling and fling direction.
         currentFlingDirection = NONE
@@ -654,6 +658,34 @@ class CalendarEmploView : View {
             startPixel += widthPerDay + columnGap
         }
         return null
+    }
+
+    //FIXME this method in progress. Now, return a string of number of staff but it must return a staff object
+    /**
+     * Get the employee where the user clicked on.
+     * @param x The x position of the touch event.
+     * @param y The y position of the touch event.
+     * @return The employee at the clicked position.
+     */
+    private fun getEmployeeForPoint(x: Float, y: Float): String {
+        val leftEmployeesWithGaps = (-Math.ceil((currentOrigin.x / (widthPerDay + columnGap)).toDouble())).toInt()
+        var startPixel = currentOrigin.x + (widthPerDay + columnGap) * leftEmployeesWithGaps +
+                headerColumnWidth
+
+        for (staffNumber in leftEmployeesWithGaps + 1..leftEmployeesWithGaps + numberOfStaff + 1) {
+            val start = if (startPixel < headerColumnWidth) {
+                headerColumnWidth
+            } else {
+                startPixel
+            }
+            if (widthPerDay + startPixel - start > 0 && x > start && x < startPixel + widthPerDay) {
+                val pixelsFromZero = (y - currentOrigin.y - headerTextHeight
+                        - (headerRowPadding * 2).toFloat() - timeTextHeight / 2 - headerMarginBottom)
+                return staffNumber.toString()
+            }
+            startPixel += widthPerDay + columnGap
+        }
+        return "Not Found"
     }
 
 
@@ -1011,11 +1043,11 @@ class CalendarEmploView : View {
                     }
                 }
                 else {
-                    val backgroundPaint = if (sameDay) {
-                        todayBackgroundPaint
-                    } else {
-                        dayBackgroundPaint
-                    }
+                    val backgroundPaint = dayBackgroundPaint //if (sameDay) {
+//                        todayBackgroundPaint
+//                    } else {
+//                        dayBackgroundPaint
+//                    }
                     //OK
                     if (!day.before(today)) {
                         canvas.drawRect(start, headerTextHeight + headerRowPadding * 2 + timeTextHeight / 2 + headerMarginBottom, startPixel + widthPerDay, height.toFloat(), backgroundPaint)
@@ -1071,26 +1103,43 @@ class CalendarEmploView : View {
         // TODO this header must move up than staff header. Also, must implement day header corresponding design
         /*** Draw the header row texts. ***/
         startPixel = startFropixel
-        for (dayNumber in begin..end) {
-            // Check if the day is today.
-            val day = today.clone()
-            (day as Calendar).add(Calendar.DATE, dayNumber - 1)
-            val sameDay = isSameDay(day, today)
+        for (employee in begin..end) {
             /*** Draw the day labels. ***/
-            val dayLabel = dateTimeInterpreter.interpretDate(day) ?: throw IllegalStateException("A DateTimeInterpreter must not return null date")
-            val headerPaint = if (sameDay) {
-                todayHeaderTextPaint
-            } else {
-                headerTextPaint
-            }
+            val headerPaint = headerTextPaint
             bitmap?.let {
                 canvas.drawBitmap(bitmap, startPixel + widthPerDay / 2, headerTextHeight + headerRowPadding, headerPaint)
             }
-            canvas.drawText(dayLabel, startPixel + widthPerDay / 2, headerTextHeight + headerRowPadding, headerPaint)
+            canvas.drawText("STAFF $employee", startPixel + widthPerDay / 2, headerTextHeight + headerRowPadding, headerPaint)
             startPixel += widthPerDay + columnGap
             /*** *** ***/
         }
         /*** *** ***/
+
+
+
+//        // TODO this header must move up than staff header. Also, must implement day header corresponding design
+//        /*** Draw the header row texts. ***/
+//        startPixel = startFropixel
+//        for (dayNumber in begin..end) {
+//            // Check if the day is today.
+//            val day = today.clone()
+//            (day as Calendar).add(Calendar.DATE, dayNumber - 1)
+//            val sameDay = isSameDay(day, today)
+//            /*** Draw the day labels. ***/
+//            val dayLabel = dateTimeInterpreter.interpretDate(day) ?: throw IllegalStateException("A DateTimeInterpreter must not return null date")
+//            val headerPaint = if (sameDay) {
+//                todayHeaderTextPaint
+//            } else {
+//                headerTextPaint
+//            }
+//            bitmap?.let {
+//                canvas.drawBitmap(bitmap, startPixel + widthPerDay / 2, headerTextHeight + headerRowPadding, headerPaint)
+//            }
+//            canvas.drawText(dayLabel, startPixel + widthPerDay / 2, headerTextHeight + headerRowPadding, headerPaint)
+//            startPixel += widthPerDay + columnGap
+//            /*** *** ***/
+//        }
+//        /*** *** ***/
     }
 
     private fun drawTimeColumnAndAxes(canvas: Canvas) {
@@ -1275,42 +1324,45 @@ class CalendarEmploView : View {
         }
     }
 
-    inner class EmptyViewClickListenerImpl : EmptyViewClickListener {
-        override fun onEmptyViewClicked(time: Calendar) {
+    inner class EmptySpaceClickListenerImpl : EmptySpaceClickListener {
+        override fun onEmptySpaceClicked(time: Calendar, staff: String) {
             //TODO To change body of created functions use File | Settings | File Templates.
         }
     }
 
     private inner class SimpleOnGestureListenerImpl : GestureDetector.SimpleOnGestureListener() {
 
-        override fun onSingleTapConfirmed(e: MotionEvent?): Boolean {
+        override fun onSingleTapConfirmed(motionEvent: MotionEvent?): Boolean {
             //super.onSingleTapConfirmed(e)
-            if (e == null) {
+            if (motionEvent == null) {
                 return false
             }
             // If the tap was on an event then trigger the callback.
-            if (eventRects != null && eventClickListener != null) {
-                val reversedEventRects = eventRects
-                reversedEventRects.reverse()
-                for (event in reversedEventRects) {
-                    if (event.rectF != null && e.x > (event.rectF as RectF).left && e.x < (event.rectF as RectF).right && e.y > (event.rectF as RectF).top && e.y < (event.rectF as RectF).bottom) {
-                        eventClickListener.onEventClick(event.originalEvent, (event.rectF as RectF))
-                        playSoundEffect(SoundEffectConstants.CLICK)
-                        return true//super.onSingleTapConfirmed(e)
-                    }
+            val reversedEventRects = eventRects
+            reversedEventRects.reverse()
+            val x = motionEvent.x
+            val y = motionEvent.y
+            for (event in reversedEventRects) {
+                if (event.rectF != null && x > (event.rectF as RectF).left && x < (event.rectF as RectF).right && y > (event.rectF as RectF).top && y < (event.rectF as RectF).bottom) {
+                    eventClickListener.onEventClick(event.originalEvent, (event.rectF as RectF))
+                    playSoundEffect(SoundEffectConstants.CLICK)
+                    return true//super.onSingleTapConfirmed(e)
                 }
             }
+//            if (eventRects != null && eventClickListener != null) {
+//            }
 
             // If the tap was on in an empty space, then trigger the callback.
-            if (e.x > headerColumnWidth && e.y > headerTextHeight + (headerRowPadding * 2).toFloat() + headerMarginBottom) {
-                val selectedTime = getTimeForPoint(e.x, e.y)
+            if (x > headerColumnWidth && y > headerTextHeight + (headerRowPadding * 2).toFloat() + headerMarginBottom) {
+                val selectedTime = getTimeForPoint(x, y)
+                val selectedStaff = getEmployeeForPoint(x, y)
                 if (selectedTime != null) {
                     playSoundEffect(SoundEffectConstants.CLICK)
-                    emptyViewClickListener.onEmptyViewClicked(selectedTime)
+                    emptySpaceClickListener.onEmptySpaceClicked(time = selectedTime, staff = selectedStaff)
                 }
             }
 
-            return super.onSingleTapConfirmed(e)
+            return super.onSingleTapConfirmed(motionEvent)
         }
 
         override fun onShowPress(e: MotionEvent?) {
@@ -1346,7 +1398,7 @@ class CalendarEmploView : View {
 //                VERTICAL -> scroller.fling(currentOrigin.x.toInt(), currentOrigin.y.toInt(), 0, velocityY.toInt(), Integer.MIN_VALUE, Integer.MAX_VALUE, (-((hourHeight * 24).toFloat() + headerTextHeight + (headerRowPadding * 2).toFloat() + headerMarginBottom + timeTextHeight / 2 - height)).toInt(), 0)
 //            }
 //
-//            ViewCompat.postInvalidateOnAnimation(this@CalendarView)
+//            ViewCompat.postInvalidateOnAnimation(this@CalendarEmployeeView)
             return true
         }
 
@@ -1386,11 +1438,11 @@ class CalendarEmploView : View {
             when (currentScrollDirection) {
                 LEFT, RIGHT -> {
                     currentOrigin.x -= distanceX * xScrollingSpeed
-                    ViewCompat.postInvalidateOnAnimation(this@CalendarEmploView)
+                    ViewCompat.postInvalidateOnAnimation(this@CalendarEmployeeView)
                 }
                 VERTICAL -> {
                     currentOrigin.y -= distanceY * yScrollingSpeed
-                    ViewCompat.postInvalidateOnAnimation(this@CalendarEmploView)
+                    ViewCompat.postInvalidateOnAnimation(this@CalendarEmployeeView)
                 }
             }
             return true
