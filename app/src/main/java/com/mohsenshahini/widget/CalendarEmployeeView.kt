@@ -146,7 +146,7 @@ class CalendarEmployeeView : View {
     private var defaultEventColor = 0
     private var futureWeekendBackgroundColor = 0
     private var pastWeekendBackgroundColor = 0
-    private var nowLineColor = Color.rgb(102, 102, 102)
+    private var nowLineColor = Color.RED//Color.rgb(102, 102, 102)
     private var eventTextColor = Color.BLACK
     private var headerColumnTextColor = Color.BLACK
     private var headerColumnBackgroundColor = Color.WHITE
@@ -426,13 +426,13 @@ class CalendarEmployeeView : View {
 
             override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
                 isZooming = true
-                goToNearestOrigin()
+//                goToNearestOrigin()
                 return true
             }
 
             override fun onScale(detector: ScaleGestureDetector): Boolean {
-                newHourHeight = Math.round(hourHeight * detector.scaleFactor)
-                invalidate()
+//                newHourHeight = Math.round(hourHeight * detector.scaleFactor)
+//                invalidate()
                 return true
             }
         })
@@ -594,20 +594,27 @@ class CalendarEmployeeView : View {
         if (rect.right - rect.left - (eventPadding * 2).toFloat() < 0) return
         if (rect.bottom - rect.top - (eventPadding * 2).toFloat() < 0) return
 
+        val simpleDateFormat = SimpleDateFormat("h:mm", Locale.getDefault())
+
+        val startTime = simpleDateFormat.format(event.startTime?.time).toUpperCase()
+        val endTime = simpleDateFormat.format(event.endTime?.time).toUpperCase()
         // Prepare the name of the event.
-        val bob = SpannableStringBuilder()
-        bob.append(event.name)
-        bob.setSpan(StyleSpan(Typeface.BOLD), 0, bob.length, 0)
-        bob.append(' ')
+        val spannableStringBuilder = SpannableStringBuilder()
+        spannableStringBuilder.append(startTime)
+        spannableStringBuilder.append(" - ")
+        spannableStringBuilder.append(endTime)
+        spannableStringBuilder.setSpan(StyleSpan(Typeface.BOLD), 0, spannableStringBuilder.length, 0)
+        spannableStringBuilder.append("\n")
+        spannableStringBuilder.append(event.name)
 
         // Prepare the location of the event.
-        bob.append(event.location)
+        spannableStringBuilder.append(event.location)
 
         val availableHeight = (rect.bottom - originalTop - (eventPadding * 2).toFloat()).toInt()
         val availableWidth = (rect.right - originalLeft - (eventPadding * 2).toFloat()).toInt()
 
         // Get text dimensions.
-        var textLayout = StaticLayout(bob, eventTextPaint, availableWidth, Layout.Alignment.ALIGN_NORMAL, 1.0f, 0.0f, false)
+        var textLayout = StaticLayout(spannableStringBuilder, eventTextPaint, availableWidth, Layout.Alignment.ALIGN_NORMAL, 1.0f, 0.0f, false)
 
         val lineHeight = textLayout.height / textLayout.lineCount
 
@@ -616,7 +623,7 @@ class CalendarEmployeeView : View {
             var availableLineCount = availableHeight / lineHeight
             do {
                 // Ellipsize text to fit into event rect.
-                textLayout = StaticLayout(TextUtils.ellipsize(bob, eventTextPaint, (availableLineCount * availableWidth).toFloat(), TextUtils.TruncateAt.END), eventTextPaint, (rect.right - originalLeft - (eventPadding * 2).toFloat()).toInt(), Layout.Alignment.ALIGN_NORMAL, 1.0f, 0.0f, false)
+                textLayout = StaticLayout(TextUtils.ellipsize(spannableStringBuilder, eventTextPaint, (availableLineCount * availableWidth).toFloat(), TextUtils.TruncateAt.END), eventTextPaint, (rect.right - originalLeft - (eventPadding * 2).toFloat()).toInt(), Layout.Alignment.ALIGN_NORMAL, 1.0f, 0.0f, false)
 
                 // Reduce line count.
                 availableLineCount--
