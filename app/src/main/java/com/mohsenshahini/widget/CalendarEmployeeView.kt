@@ -3,6 +3,8 @@ package com.mohsenshahini.widget
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.*
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.support.annotation.IntDef
 import android.support.v4.view.GestureDetectorCompat
 import android.support.v4.view.ViewCompat
@@ -15,10 +17,16 @@ import android.util.Log
 import android.util.TypedValue
 import android.view.*
 import android.widget.OverScroller
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.resource.bitmap.BitmapResource
+import com.bumptech.glide.request.Request
+import com.bumptech.glide.request.target.SimpleTarget
+import com.bumptech.glide.request.target.SizeReadyCallback
+import com.bumptech.glide.request.target.Target
+import com.bumptech.glide.request.transition.Transition
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
-
 
 class CalendarEmployeeView : View {
 
@@ -83,6 +91,7 @@ class CalendarEmployeeView : View {
         fun onEventClick(event: WeekViewEvent, eventRect: RectF)
     }
 
+    //FIXME Write comment for all fields
     companion object {
         private const val LENGTH_SHORT = 1
         private const val LENGTH_LONG = 2
@@ -105,6 +114,10 @@ class CalendarEmployeeView : View {
 
     /** Days */
     private var firstDayOfWeek = Calendar.MONDAY
+
+    private var openTime = 0
+    private var closeTime = 20
+    private var timeAmount = 24
 
     /** Sizes */
     private var hourHeight = 50
@@ -141,6 +154,8 @@ class CalendarEmployeeView : View {
     private var yScrollingSpeed = 2f
     private var eventCornerRadius = 1
     private var fetchedPeriod = (-1).toDouble() // the middle period the calendar has fetched.
+    private var bitmapWidth = 120
+    private var bitmapHeight = 120
 
     /** Colors */
     private var defaultEventColor = 0
@@ -215,6 +230,7 @@ class CalendarEmployeeView : View {
 
     private var bitmap: Bitmap? = null
 
+    private var drawable: Drawable? = null
 
     constructor(context: Context) : this(context, null)
 
@@ -268,8 +284,29 @@ class CalendarEmployeeView : View {
         init()
     }
 
+    fun setOpenAndCloseTime(openTime: Int, closeTime: Int) {
+        this.openTime = openTime
+        this.closeTime = closeTime
+        timeAmount = closeTime - openTime
+        invalidate()
+    }
+
     fun setBitmap(bitmap: Bitmap?) {
         this.bitmap = bitmap
+        requestLayout()
+    }
+
+    fun setBitmap(url: String) {
+        loadBitmap(url)
+    }
+
+    fun setBitmap(imageId: Int) {
+        bitmap = BitmapFactory.decodeResource(context.resources, imageId)
+        requestLayout()
+    }
+
+    fun setDrawable(drawable: Drawable?) {
+        this.drawable = drawable
         requestLayout()
     }
 
@@ -328,14 +365,32 @@ class CalendarEmployeeView : View {
             )
 
             // Draw the header row.
-//            drawHeaderRowAndEvents(it)
             drawHourLine(it)
 
             // Draw the time column and all the axes/separators. 
             drawTimeColumnAndAxes(it)
+
+            drawImage(canvas)
         }
     }
 
+    private fun loadBitmap(url: String) {
+        val target = SimpleTargetImpl(bitmapWidth, bitmapHeight)
+        Glide.with(context)
+                .asBitmap()
+                .load(url)
+                .into(target)
+    }
+
+    private fun drawImage(canvas: Canvas) {
+        bitmap?.let {
+            val leftDaysWithGaps = -(Math.ceil(currentOrigin.x.toDouble() / (widthPerDay + columnGap))).toInt()
+            val startPixel = currentOrigin.x + (widthPerDay + columnGap) * leftDaysWithGaps + headerColumnWidth
+//            canvas.drawBitmap(it, startPixel + widthPerDay / 2, headerTextHeight + headerRowPadding, headerTextPaint)
+        }
+    }
+
+    //FIXME clean and refactor 'init()'
     private fun init() {
         // Scrolling initialization.
         gestureDetector = GestureDetectorCompat(context, SimpleOnGestureListenerImpl())
@@ -361,7 +416,7 @@ class CalendarEmployeeView : View {
         headerTextPaint.textAlign = Paint.Align.CENTER
         headerTextPaint.textSize = textSize.toFloat()
         headerTextPaint.getTextBounds("00 PM", 0, "00 PM".length, rect)
-        headerTextHeight = rect.height().toFloat()
+        headerTextHeight = 150.toFloat()//rect.height().toFloat()
         headerTextPaint.typeface = Typeface.DEFAULT_BOLD
 
         // Prepare header background paint.
@@ -430,6 +485,7 @@ class CalendarEmployeeView : View {
                 return true
             }
 
+            //Zooming function
             override fun onScale(detector: ScaleGestureDetector): Boolean {
 //                newHourHeight = Math.round(hourHeight * detector.scaleFactor)
 //                invalidate()
@@ -444,8 +500,11 @@ class CalendarEmployeeView : View {
      * @param dayTwo The second day.
      * @return Whether the times are on the same day.
      */
-    private fun isSameDay(dayOne: Calendar?, dayTwo: Calendar?) = dayOne?.get(Calendar.YEAR) == dayTwo?.get(Calendar.YEAR) && dayOne?.get(Calendar.DAY_OF_YEAR) == dayTwo?.get(Calendar.DAY_OF_YEAR)
+    private fun isSameDay(dayOne: Calendar?, dayTwo: Calendar?) =
+            dayOne?.get(Calendar.YEAR) == dayTwo?.get(Calendar.YEAR) &&
+                    dayOne?.get(Calendar.DAY_OF_YEAR) == dayTwo?.get(Calendar.DAY_OF_YEAR)
 
+    //FIXME clean and refactor (e.g. rename 'leftDays', 'widthPerDay', etc)
     private fun goToNearestOrigin() {
         var leftDays = (currentOrigin.x / (widthPerDay + columnGap)).toDouble()
 
@@ -476,7 +535,7 @@ class CalendarEmployeeView : View {
 
     private fun initTextTimeWidth() {
         timeTextWidth = 0f
-        for (i in 0..23) {
+        for (i in openTime..closeTime) {
             // Measure time string and get max width.
             //TODO maybe here is needed to throw an exception if time will be null
             // ?: throw IllegalStateException("A DateTimeInterpreter must not return null time")
@@ -485,40 +544,50 @@ class CalendarEmployeeView : View {
         }
     }
 
-    private fun goToHour(hour: Float) {
-
-        //TODO Needed implementation
-    }
-
-    private fun goToDate(date: Calendar) {
-        return
-        scroller.forceFinished(true)
-        currentFlingDirection = NONE
-
-        date.set(Calendar.HOUR_OF_DAY, 0)
-        date.set(Calendar.MINUTE, 0)
-        date.set(Calendar.SECOND, 0)
-        date.set(Calendar.MILLISECOND, 0)
-
-        if (areDimensionsInvalid) {
-            scrollToDay = date
-            return
+    private fun goToHour(@Suppress("UNUSED_PARAMETER") hour: Float) {
+        var verticalOffset = 0
+        if (hour > timeAmount) {
+            verticalOffset = hourHeight * timeAmount
+        } else if (hour > 0) {
+            verticalOffset = (hourHeight * hour).toInt()
         }
 
-        refreshEvents = true
+        if (verticalOffset > hourHeight * timeAmount - height + headerTextHeight + headerRowPadding * 2 + headerMarginBottom) {
+            verticalOffset = (hourHeight * timeAmount - height + headerTextHeight + headerRowPadding * 2 + headerMarginBottom).toInt()
+        }
 
-        val today = Calendar.getInstance()
-        today.set(Calendar.HOUR_OF_DAY, 0)
-        today.set(Calendar.MINUTE, 0)
-        today.set(Calendar.SECOND, 0)
-        today.set(Calendar.MILLISECOND, 0)
-
-        val day = 1000L * 60L * 60L * 24L
-        val dateInMillis = date.timeInMillis + date.timeZone.getOffset(date.timeInMillis)
-        val todayInMillis = today.timeInMillis + today.timeZone.getOffset(today.timeInMillis)
-        val dateDifference = dateInMillis / day - todayInMillis / day
-        currentOrigin.x = -dateDifference * (widthPerDay + columnGap)
+        currentOrigin.y = -verticalOffset.toFloat()
         invalidate()
+    }
+
+    private fun goToDate(@Suppress("UNUSED_PARAMETER") date: Calendar) {
+//        scroller.forceFinished(true)
+//        currentFlingDirection = NONE
+//
+//        date.set(Calendar.HOUR_OF_DAY, 0)
+//        date.set(Calendar.MINUTE, 0)
+//        date.set(Calendar.SECOND, 0)
+//        date.set(Calendar.MILLISECOND, 0)
+//
+//        if (areDimensionsInvalid) {
+//            scrollToDay = date
+//            return
+//        }
+//
+//        refreshEvents = true
+//
+//        val today = Calendar.getInstance()
+//        today.set(Calendar.HOUR_OF_DAY, 0)
+//        today.set(Calendar.MINUTE, 0)
+//        today.set(Calendar.SECOND, 0)
+//        today.set(Calendar.MILLISECOND, 0)
+//
+//        val day = 1000L * 60L * 60L * 24L
+//        val dateInMillis = date.timeInMillis + date.timeZone.getOffset(date.timeInMillis)
+//        val todayInMillis = today.timeInMillis + today.timeZone.getOffset(today.timeInMillis)
+//        val dateDifference = dateInMillis / day - todayInMillis / day
+//        currentOrigin.x = -dateDifference * (widthPerDay + columnGap)
+//        invalidate()
     }
 
     private fun today(): Calendar {
@@ -530,13 +599,15 @@ class CalendarEmployeeView : View {
         return today
     }
 
+
+    //FIXME Here we don't need date parameter, we need to determine staff's column instead of date.
     /**
-     * Draw all the events of a particular day.
+     * Draw all the events of a particular column.
      * @param date The day.
-     * @param startFropixel The left position of the day area. The events will never go any left from this value.
+     * @param startForPixel The left position of the column area. The events will never go any left from this value.
      * @param canvas The canvas to draw upon.
      */
-    private fun drawEvents(date: Calendar, startFropixel: Float, canvas: Canvas) {
+    private fun drawEvents(date: Calendar, startForPixel: Float, canvas: Canvas) {
         if (eventRects.isNullOrEmpty()) {
             return
         }
@@ -544,22 +615,22 @@ class CalendarEmployeeView : View {
             if (isSameDay(eventRects[i].event.startTime, date)) {
 
                 // Calculate top.
-                val top = hourHeight.toFloat() * 24f * eventRects[i].top / 1440 +
+                val top = hourHeight.toFloat() * timeAmount * eventRects[i].top / 1440 +
                         currentOrigin.y + headerTextHeight + (headerRowPadding * 2).toFloat() +
                         headerMarginBottom + timeTextHeight / 2 + eventMarginVertical.toFloat()
 
                 // Calculate bottom.
                 var bottom = eventRects[i].bottom
-                bottom = hourHeight.toFloat() * 24f * bottom / 1440 + currentOrigin.y +
+                bottom = hourHeight.toFloat() * timeAmount * bottom / 1440 + currentOrigin.y +
                         headerTextHeight + (headerRowPadding * 2).toFloat() +
                         headerMarginBottom + timeTextHeight / 2 - eventMarginVertical
 
                 // Calculate left and right.
-                var left = startFropixel + eventRects[i].left * widthPerDay
-                if (left < startFropixel)
+                var left = startForPixel + eventRects[i].left * widthPerDay
+                if (left < startForPixel)
                     left += overlappingEventGap.toFloat()
                 var right = left + eventRects[i].width * widthPerDay
-                if (right < startFropixel + widthPerDay)
+                if (right < startForPixel + widthPerDay)
                     right -= overlappingEventGap.toFloat()
 
                 // Draw the event and the event name on top of it.
@@ -704,10 +775,12 @@ class CalendarEmployeeView : View {
      */
     private fun getMoreEvents(day: Calendar) {
         // Get more events if the month is changed.
-        if (eventRects == null)
-            eventRects = ArrayList<EventRect>()
-        if (weekViewLoader == null && !isInEditMode)
+        if (eventRects == null) {
+            eventRects = ArrayList()
+        }
+        if (weekViewLoader == null && !isInEditMode) {
             throw IllegalStateException("You must provide a MonthChangeListener")
+        }
 
         // If a refresh was requested then reset some variables.
         if (refreshEvents) {
@@ -718,74 +791,43 @@ class CalendarEmployeeView : View {
             fetchedPeriod = (-1).toDouble()
         }
 
-        if (weekViewLoader != null) {
-            val periodToFetch = weekViewLoader.toWeekViewPeriodIndex(day)
-            if (!isInEditMode && (fetchedPeriod < 0 || fetchedPeriod != periodToFetch || refreshEvents)) {
-                var previousPeriodEvents: List<WeekViewEvent>? = null
-                var currentPeriodEvents: List<WeekViewEvent>? = null
-                var nextPeriodEvents: List<WeekViewEvent>? = null
+        val periodToFetch = weekViewLoader.toWeekViewPeriodIndex(day)
+        if (!isInEditMode && (fetchedPeriod < 0 || fetchedPeriod != periodToFetch || refreshEvents)) {
+            val previousPeriodEvents: List<WeekViewEvent> = weekViewLoader.onLoad(periodToFetch.toInt())
+            val currentPeriodEvents: List<WeekViewEvent> = weekViewLoader.onLoad(periodToFetch.toInt() - 1)
+            val nextPeriodEvents: List<WeekViewEvent> = weekViewLoader.onLoad(periodToFetch.toInt() + 1)
 
-                if (previousPeriodEvents != null && currentPeriodEvents != null && nextPeriodEvents != null) {
-                    when (periodToFetch) {
-                        fetchedPeriod - 1 -> {
-                            currentPeriodEvents = previousPeriodEvents
-                            nextPeriodEvents = currentPeriodEvents
-                        }
-                        fetchedPeriod -> {
-                            previousPeriodEvents = previousPeriodEvents
-                            currentPeriodEvents = currentPeriodEvents
-                            nextPeriodEvents = nextPeriodEvents
-                        }
-                        fetchedPeriod + 1 -> {
-                            previousPeriodEvents = currentPeriodEvents
-                            currentPeriodEvents = nextPeriodEvents
-                        }
-                    }
-                }
-                if (currentPeriodEvents == null)
-                    currentPeriodEvents = weekViewLoader.onLoad(periodToFetch.toInt())
-                if (previousPeriodEvents == null)
-                    previousPeriodEvents = weekViewLoader.onLoad(periodToFetch.toInt() - 1)
-                if (nextPeriodEvents == null)
-                    nextPeriodEvents = weekViewLoader.onLoad(periodToFetch.toInt() + 1)
+            // Clear events.
+            eventRects.clear()
+            //FIXME why is needed sort events?
+            sortAndCacheEvents(previousPeriodEvents)
+            sortAndCacheEvents(currentPeriodEvents)
+            sortAndCacheEvents(nextPeriodEvents)
 
-
-                // Clear events.
-                eventRects.clear()
-                sortAndCacheEvents(previousPeriodEvents)
-                sortAndCacheEvents(currentPeriodEvents)
-                sortAndCacheEvents(nextPeriodEvents)
-
-//                previousPeriodEvents = previousPeriodEvents
-//                currentPeriodEvents = currentPeriodEvents
-//                nextPeriodEvents = nextPeriodEvents
-                fetchedPeriod = periodToFetch
-            }
+            fetchedPeriod = periodToFetch
         }
 
         // Prepare to calculate positions of each events.
         val tempEvents = eventRects
-        eventRects = ArrayList<EventRect>()
+        eventRects = ArrayList()
 
         // Iterate through each day with events to calculate the position of the events.
-        while (tempEvents.size > 0) {
+        while (!tempEvents.isEmpty()) {
             val eventRects = ArrayList<EventRect>(tempEvents.size)
 
             // Get first event for a day.
             val eventRect1 = tempEvents.removeAt(0)
             eventRects.add(eventRect1)
 
-            var i = 0
-            while (i < tempEvents.size) {
-                // Collect all other events for same day.
-                val eventRect2 = tempEvents[i]
+            for (index in 0 until tempEvents.size) {
+                // Collect all other events for same column.
+                val eventRect2 = tempEvents[index]
                 if (isSameDay(eventRect1.event.startTime, eventRect2.event.startTime)) {
-                    tempEvents.removeAt(i)
+                    tempEvents.removeAt(index)
                     eventRects.add(eventRect2)
-                } else {
-                    i++
                 }
             }
+
             computePositionOfEvents(eventRects)
         }
     }
@@ -890,6 +932,7 @@ class CalendarEmployeeView : View {
         }
     }
 
+    //FIXME clean and refactor 'drawHourLine()'
     private fun drawHourLine(canvas: Canvas) {
         // Calculate the available width for each day.
         headerColumnWidth = timeTextWidth + headerColumnPadding * 2
@@ -899,7 +942,7 @@ class CalendarEmployeeView : View {
         val today: Calendar = today()
 
         if (areDimensionsInvalid) {
-            effectiveMinHourHeight = Math.max(minHourHeight, ((height - headerTextHeight - headerRowPadding * 2 - headerMarginBottom) / 24).toInt())
+            effectiveMinHourHeight = Math.max(minHourHeight, ((height - headerTextHeight - headerRowPadding * 2 - headerMarginBottom) / timeAmount).toInt())
 
             areDimensionsInvalid = false
             scrollToDay?.let {
@@ -907,8 +950,9 @@ class CalendarEmployeeView : View {
             }
 
             areDimensionsInvalid = false
-            if (scrollToHour >= 0)
-                goToHour(scrollToHour)
+            if (scrollToHour >= 0) {
+                goToHour(9F) //scrollToHour
+            }
 
             scrollToDay = null
             scrollToHour = -1f
@@ -937,15 +981,18 @@ class CalendarEmployeeView : View {
         }
 
         // If the new currentOrigin.y is invalid, make it valid.
-        val originHeight = height - hourHeight * 24 - headerTextHeight - headerRowPadding * 2 - headerMarginBottom - timeTextHeight / 2
+        //FIXME MAGIC NUMBER '3' diff up (24-3=21hours)
+        var originHeight = height - hourHeight * (timeAmount-3) - headerTextHeight - headerRowPadding * 2 - headerMarginBottom - timeTextHeight / 2
         if (currentOrigin.y < originHeight) {
             currentOrigin.y = originHeight
         }
 
         // Don't put an "else if" because it will trigger a glitch when completely zoomed out and
         // scrolling vertically.
-        if (currentOrigin.y > 0) {
-            currentOrigin.y = 0f
+        //FIXME MAGIC NUMBER '12' diff down (24-12=12hours)
+        originHeight -= height - hourHeight * (timeAmount-12) - headerTextHeight - headerRowPadding * 2 - headerMarginBottom - timeTextHeight / 2
+        if (currentOrigin.y > originHeight) {
+            currentOrigin.y = originHeight
         }
 
         //test
@@ -1026,11 +1073,6 @@ class CalendarEmployeeView : View {
             if (widthPerDay + startPixel - start > 0) {
                 if (showDistinctPastFutureColor) {
                     val isWeekend = day.get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY || day.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY
-//                    val pastPaint: Paint = if (isWeekend && showDistinctWeekendColor) {
-//                        pastWeekendBackgroundPaint
-//                    } else {
-//                        pastBackgroundPaint
-//                    }
                     val futurePaint: Paint = if (isWeekend && showDistinctWeekendColor) {
                         futureWeekendBackgroundPaint
                     } else {
@@ -1064,7 +1106,7 @@ class CalendarEmployeeView : View {
 
             // Prepare the separator lines for hours.
             var i = 0
-            for (hourNumber in 0..23) {
+            for (hourNumber in openTime..closeTime) {
                 val top = headerTextHeight + headerRowPadding * 2 + currentOrigin.y + hourHeight * hourNumber + timeTextHeight / 2 + headerMarginBottom
                 if (top > headerTextHeight + headerRowPadding * 2 + timeTextHeight / 2 + headerMarginBottom - hourSeparatorHeight && top < height && startPixel + widthPerDay - start > 0) {
                     hourLines[i * 4] = start
@@ -1095,17 +1137,11 @@ class CalendarEmployeeView : View {
 
         }
 
-
         // Clip to paint header row only.
         canvas.clipRect(headerColumnWidth, 0f, width.toFloat(), headerTextHeight + headerRowPadding * 2, Region.Op.REPLACE)
 
         // Draw the header background.
         canvas.drawRect(0f, 0f, width.toFloat(), headerTextHeight + headerRowPadding * 2, headerBackgroundPaint)
-
-
-
-
-
 
         // TODO this header must move up than staff header. Also, must implement day header corresponding design
         /*** Draw the header row texts. ***/
@@ -1113,16 +1149,17 @@ class CalendarEmployeeView : View {
         for (employee in begin..end) {
             /*** Draw the day labels. ***/
             val headerPaint = headerTextPaint
+            var textTop = headerRowPadding.toFloat() + 40
             bitmap?.let {
-                canvas.drawBitmap(bitmap, startPixel + widthPerDay / 2, headerTextHeight + headerRowPadding, headerPaint)
+                val imagePadding = (widthPerDay - it.height) / 2
+                canvas.drawBitmap(bitmap, startPixel + imagePadding , headerRowPadding.toFloat(), headerPaint)
+                textTop += it.height
             }
-            canvas.drawText("STAFF $employee", startPixel + widthPerDay / 2, headerTextHeight + headerRowPadding, headerPaint)
+            canvas.drawText("STAFF $employee", startPixel + widthPerDay / 2, textTop, headerPaint)
             startPixel += widthPerDay + columnGap
             /*** *** ***/
         }
         /*** *** ***/
-
-
 
 //        // TODO this header must move up than staff header. Also, must implement day header corresponding design
 //        /*** Draw the header row texts. ***/
@@ -1151,11 +1188,12 @@ class CalendarEmployeeView : View {
 
     private fun drawTimeColumnAndAxes(canvas: Canvas) {
         // Draw the background color for the header column.
+        val timeColumnHeight = (closeTime - openTime) * currentOrigin.y
         canvas.drawRect(
                 0f,
                 headerTextHeight + headerRowPadding * 2,
                 headerColumnWidth,
-                height.toFloat(),
+                timeColumnHeight,
                 headerColumnBackgroundPaint
         )
 
@@ -1168,12 +1206,14 @@ class CalendarEmployeeView : View {
                 Region.Op.REPLACE
         )
 
-        for (i in 0..23) {
+        for ((i, timeNumber) in (openTime..closeTime).withIndex()) {
             val top = headerTextHeight + (headerRowPadding * 2).toFloat() + currentOrigin.y + (hourHeight * i).toFloat() + headerMarginBottom
 
             // Draw the text if its y position is not outside of the visible area. The pivot point of the text is the point at the bottom-right corner.
-            val time = dateTimeInterpreter.interpretTime(i)
-            if (top < height) canvas.drawText(time, timeTextWidth + headerColumnPadding, top + timeTextHeight, timeTextPaint)
+            val time = dateTimeInterpreter.interpretTime(timeNumber)
+            if (top < height) {
+                canvas.drawText(time, timeTextWidth + headerColumnPadding, top + timeTextHeight, timeTextPaint)
+            }
         }
     }
 
@@ -1193,27 +1233,30 @@ class CalendarEmployeeView : View {
      * @param event The event to cache.
      */
     private fun cacheEvent(event: WeekViewEvent) {
-        //Fixme !!
-        if (event.startTime?.compareTo(event.endTime)!! >= 0)
+        val startTime = event.startTime ?: return
+        val endTime = event.endTime ?: return
+
+        if (startTime >= endTime) {
             return
-        if (!isSameDay(event.startTime, event.endTime)) {
+        }
+        if (!isSameDay(startTime, endTime)) {
             // Add first day.
-            val endTime = event.startTime?.clone() as Calendar
-            endTime.set(Calendar.HOUR_OF_DAY, 23)
+//            val endTime = event.startTime?.clone() as Calendar
+            endTime.set(Calendar.HOUR_OF_DAY, closeTime)
             endTime.set(Calendar.MINUTE, 59)
-            val event1 = WeekViewEvent(event.id, event.name, event.startTime, endTime, event.location)
+            val event1 = WeekViewEvent(event.id, event.name, startTime, endTime, event.location)
             event1.color = event.color
             eventRects.add(EventRect(event1, event, null))
 
             // Add other days.
             val otherDay = event.startTime?.clone() as Calendar
             otherDay.add(Calendar.DATE, 1)
-            while (!isSameDay(otherDay, event.endTime)) {
+            while (!isSameDay(otherDay, endTime)) {
                 val overDay = otherDay.clone() as Calendar
                 overDay.set(Calendar.HOUR_OF_DAY, 0)
                 overDay.set(Calendar.MINUTE, 0)
                 val endOfOverDay = overDay.clone() as Calendar
-                endOfOverDay.set(Calendar.HOUR_OF_DAY, 23)
+                endOfOverDay.set(Calendar.HOUR_OF_DAY, closeTime)
                 endOfOverDay.set(Calendar.MINUTE, 59)
                 val eventMore = WeekViewEvent(event.id, event.name, overDay, endOfOverDay)
                 eventMore.color = event.color
@@ -1224,10 +1267,10 @@ class CalendarEmployeeView : View {
             }
 
             // Add last day.
-            val startTime = event.endTime?.clone() as Calendar
+//            val startTime = event.endTime?.clone() as Calendar
             startTime.set(Calendar.HOUR_OF_DAY, 0)
             startTime.set(Calendar.MINUTE, 0)
-            val event2 = WeekViewEvent(event.id, event.name, startTime, event.endTime, event.location)
+            val event2 = WeekViewEvent(event.id, event.name, startTime, endTime, event.location)
             event2.color = event.color
             eventRects.add(EventRect(event2, event, null))
         } else {
@@ -1321,19 +1364,26 @@ class CalendarEmployeeView : View {
 
     inner class ScrollListenerImpl : ScrollListener {
         override fun onFirstVisibleDayChanged(newFirstVisibleDay: Calendar, oldFirstVisibleDay: Calendar) {
-            Log.d("@@@@@@@@@@@@@@", "onFirstVisibleDayChanged ")
+            Log.d("CalendarEmployeeView", "onFirstVisibleDayChanged ")
         }
     }
 
     inner class EventClickListenerImpl : EventClickListener {
         override fun onEventClick(event: WeekViewEvent, eventRect: RectF) {
-            Log.d("@@@@@@@@@@@@@@", "Clicked " + event.name)
+            Log.d("CalendarEmployeeView", "onEventClick: " + event.name)
         }
     }
 
     inner class EmptySpaceClickListenerImpl : EmptySpaceClickListener {
         override fun onEmptySpaceClicked(time: Calendar, staff: String) {
-            //TODO To change body of created functions use File | Settings | File Templates.
+            Log.d("CalendarEmployeeView", "onEmptySpaceClicked: ")
+        }
+    }
+
+    private inner class SimpleTargetImpl(width: Int, height: Int) : SimpleTarget<Bitmap>(width, height) {
+        override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
+            bitmap = resource
+            requestLayout()
         }
     }
 
@@ -1356,8 +1406,6 @@ class CalendarEmployeeView : View {
                     return true//super.onSingleTapConfirmed(e)
                 }
             }
-//            if (eventRects != null && eventClickListener != null) {
-//            }
 
             // If the tap was on in an empty space, then trigger the callback.
             if (x > headerColumnWidth && y > headerTextHeight + (headerRowPadding * 2).toFloat() + headerMarginBottom) {
@@ -1378,34 +1426,11 @@ class CalendarEmployeeView : View {
 
         override fun onSingleTapUp(e: MotionEvent?): Boolean {
             //TODO To change body of created functions use File | Settings | File Templates.
-            Log.d("@@@@@@@@@@@@@@", "onSingleTapUp")
             return true
         }
 
         override fun onDown(e: MotionEvent?): Boolean {
 //            goToNearestOrigin()
-            return true
-        }
-
-        override fun onFling(e1: MotionEvent?, e2: MotionEvent?, velocityX: Float, velocityY: Float): Boolean {
-//            if (isZooming)
-//                return true
-//
-//            if (currentFlingDirection == LEFT && !horizontalFlingEnabled ||
-//                    currentFlingDirection == RIGHT && !horizontalFlingEnabled ||
-//                    currentFlingDirection == VERTICAL && !verticalFlingEnabled) {
-//                return true
-//            }
-//
-//            scroller.forceFinished(true)
-//
-//            currentFlingDirection = currentScrollDirection
-//            when (currentFlingDirection) {
-//                LEFT, RIGHT -> scroller.fling(currentOrigin.x.toInt(), currentOrigin.y.toInt(), (velocityX * xScrollingSpeed).toInt(), 0, Integer.MIN_VALUE, Integer.MAX_VALUE, (-((hourHeight * 24).toFloat() + headerTextHeight + (headerRowPadding * 2).toFloat() + headerMarginBottom + timeTextHeight / 2 - height)).toInt(), 0)
-//                VERTICAL -> scroller.fling(currentOrigin.x.toInt(), currentOrigin.y.toInt(), 0, velocityY.toInt(), Integer.MIN_VALUE, Integer.MAX_VALUE, (-((hourHeight * 24).toFloat() + headerTextHeight + (headerRowPadding * 2).toFloat() + headerMarginBottom + timeTextHeight / 2 - height)).toInt(), 0)
-//            }
-//
-//            ViewCompat.postInvalidateOnAnimation(this@CalendarEmployeeView)
             return true
         }
 
